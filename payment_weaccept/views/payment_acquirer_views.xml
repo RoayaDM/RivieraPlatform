@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="acquirer_form_weaccept" model="ir.ui.view">
+    <field name="name">acquirer.form.weaccept</field>
+    <field name="model">payment.acquirer</field>
+    <field name="inherit_id" ref="payment.acquirer_form"/>
+    <field name="arch" type="xml">
+      <xpath expr='//group[@name="acquirer"]' position='after'>
+        <group attrs="{'invisible': [('provider', '!=', 'weaccept')]}">
+          <field name="weaccept_username"/>
+          <field name="weaccept_password" password="1"/>
+          <field name="weaccept_merchant_id"/>
+          <field name="weaccept_payment_integration_id"/>
+          <field name="weaccept_iframe_id"/>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="transaction_form_weaccept" model="ir.ui.view">
+    <field name="name">acquirer.transaction.form.weaccept</field>
+    <field name="model">payment.transaction</field>
+    <field name="inherit_id" ref="payment.transaction_form"/>
+    <field name="arch" type="xml">
+      <xpath expr='//sheet' position='inside'>
+        <notebook>
+          <page string="WeAccept Details">
+            <group>
+              <group>
+                <field name="weaccept_order_no" readonly="1"/>
+                <field name="weaccept_sub_type" readonly="1"/>
+                <field name="weaccept_type" readonly="1"/>
+                <field name="weaccept_amount_cents" readonly="1"/>
+                <field name="weaccept_currency" readonly="1"/>
+              </group>
+              <group>
+                <field name="weaccept_message" readonly="1"/>
+                <field name="weaccept_hmac" style="word-break: break-all;" readonly="1"/>
+              </group>
+            </group>
+          </page>
+        </notebook>
+      </xpath>
+    </field>
+  </record>
+</odoo>
