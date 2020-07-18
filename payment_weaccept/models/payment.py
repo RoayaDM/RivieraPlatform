@@ -47,14 +47,14 @@ class WeAcceptAcquirer(models.Model):
         querystring = {"token": token}
 
         #need to be modified
-        txn = self.env['payment.transaction'].sudo().search([
+        '''txn = self.env['payment.transaction'].sudo().search([
             ('reference', '=', order.name + '-1'),
-            ('state', '=', 'draft')], limit=1, order="id DESC")
+            ('state', '=', 'draft')], limit=1, order="id DESC")'''
 
-        if not txn:
-            txn = self.env['payment.transaction'].sudo().search([
-            ('sale_order_ids', 'in', [order.id]),
-            ('state', '=', 'draft')], limit=1, order="id DESC")
+        #if not txn:
+        txn = self.env['payment.transaction'].sudo().search([
+        ('sale_order_ids', 'in', [order.id]),
+        ('state', '=', 'draft')], limit=1, order="id DESC")
             
         # Check weaccept order number exist then first delete
         if txn.weaccept_order_no:
