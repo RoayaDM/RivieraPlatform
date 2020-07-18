@@ -44,16 +44,23 @@ class WeAcceptAcquirer(models.Model):
         token_response = requests.post(token_url, data=json.dumps(payload), headers=headers)
         token = token_response.json().get('token')
 
+        querystring = {"token": token}
+
+        #need to be modified
         txn = self.env['payment.transaction'].sudo().search([
+            ('reference', '=', order.name + '-1'),
+            ('state', '=', 'draft')], limit=1, order="id DESC")
+
+        if not txn:
+            txn = self.env['payment.transaction'].sudo().search([
             ('sale_order_ids', 'in', [order.id]),
             ('state', '=', 'draft')], limit=1, order="id DESC")
-        # txn = self.env['payment.transaction'].sudo().browse(request.session.get('sale_transaction_id'))
-
+            
         # Check weaccept order number exist then first delete
         if txn.weaccept_order_no:
             delete_url = 'https://accept.paymobsolutions.com/api/ecommerce/orders/%s?token=%s' % (
                 txn.weaccept_order_no, token)
-            delete_response = requests.delete(delete_url, data=json.dumps({}), headers=headers)
+            delete_response = requests.delete(delete_url, data=json.dumps({}), headers=headers, params=querystring)
             if delete_response.json().get('message') == 'deleted':
                 txn.weaccept_order_no = None
 
@@ -64,16 +71,33 @@ class WeAcceptAcquirer(models.Model):
             'amount_cents': "%s" % (round(order.amount_total * 100)),
             'currency': order.currency_id.name,
             'merchant_order_id': order.name,
-            "items": []
+            "items": [],
+            'shipping_data': {
+                "first_name": order.partner_id.name,
+                "last_name": order.partner_id.name,
+                "email": order.partner_id.email,
+                "apartment": "1",
+                "building": "1",
+                "floor": "1",
+                "street": order.partner_id.street,
+                "city": order.partner_id.city,
+                "postal_code": order.partner_id.zip or "11865",
+                "state": order.partner_id.state_id and order.partner_id.state_id.name or "Alexandria",
+                "country": order.partner_id.country_id and order.partner_id.country_id.code or "EG",
+                "phone_number": order.partner_id.phone,
+                "shipping_method": "PKG",
+            },
         }
-        order_response = requests.post(order_url, data=json.dumps(order_payload), headers=headers)
+        order_response = requests.post(order_url, data=json.dumps(order_payload), headers=headers, params=querystring)
         order_response_data = order_response.json()
-        txn.weaccept_order_no = order_response_data.get('id')
+        txn.write({"weaccept_order_no" : order_response_data.get('id')})
 
         # weaccept payment token key create
         payment_url = 'https://accept.paymobsolutions.com/api/acceptance/payment_keys?token=%s' % token
         payment_key_payload = {
             'amount_cents': "%s" % (round(order.amount_total * 100)),
+            'currency': order.currency_id.name,
+            'card_integration_id': self.weaccept_payment_integration_id,
             'expiration': 36000,
             'order_id': txn.weaccept_order_no,
             'billing_data': {
@@ -86,16 +110,15 @@ class WeAcceptAcquirer(models.Model):
                 "street": order.partner_id.street,
                 "city": order.partner_id.city,
                 "postal_code": order.partner_id.zip or "11865",
-                "state": order.partner_id.state_id and order.partner_id.state_id.name or "Utah",
-                "country": order.partner_id.country_id and order.partner_id.country_id.code or "CR",
+                "state": order.partner_id.state_id and order.partner_id.state_id.name or "Alexandria",
+                "country": order.partner_id.country_id and order.partner_id.country_id.code or "EG",
                 "phone_number": order.partner_id.phone,
                 "shipping_method": "PKG",
             },
-            'currency': order.currency_id.name,
-            'integration_id': self.weaccept_payment_integration_id
         }
+
         payment_key_response = requests.post(
-            payment_url, data=json.dumps(payment_key_payload), headers=headers)
+            payment_url, data=json.dumps(payment_key_payload), headers=headers, params=querystring)
         payment_key_response_data = payment_key_response.json()
         payment_token = payment_key_response_data.get('token')
         return 'https://accept.paymobsolutions.com/api/acceptance/iframes/%s?payment_token=%s' % (
