@@ -140,7 +140,7 @@ class TransactionWeAccept(models.Model):
             _logger.info(error_msg)
             raise ValidationError(error_msg)
 
-        if response_code == 'APPROVED':
+        if response_code == 'APPROVED' or response_code == '0':
             _logger.info('WeAccept: Payment revalidated Successfully.')
             tx.write({
                 'weaccept_order_no': data.get('order'),
@@ -174,7 +174,7 @@ class TransactionWeAccept(models.Model):
             _logger.info('WeAccept: Already validated transaction (ref %s)', self.reference)
             return True
 
-        _weaccept_success_tx_status = ['0']
+        _weaccept_success_tx_status = ['0','APPROVED']
         status = data.get('txn_response_code')
         if status in _weaccept_success_tx_status:
             self._set_transaction_done()
