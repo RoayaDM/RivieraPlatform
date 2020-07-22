@@ -140,7 +140,7 @@ class TransactionWeAccept(models.Model):
             _logger.info(error_msg)
             raise ValidationError(error_msg)
 
-        if response_code == '0':
+        if response_code == 'APPROVED':
             _logger.info('WeAccept: Payment revalidated Successfully.')
             tx.write({
                 'weaccept_order_no': data.get('order'),
