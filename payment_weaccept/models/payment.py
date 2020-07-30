@@ -44,18 +44,21 @@ class WeAcceptAcquirer(models.Model):
         token_response = requests.post(token_url, data=json.dumps(payload), headers=headers)
         token = token_response.json().get('token')
 
-        txn = self.env['payment.transaction'].sudo().search([
-            ('sale_order_ids', 'in', [order.id]),
-            ('state', '=', 'draft')], limit=1, order="id DESC")
-        # txn = self.env['payment.transaction'].sudo().browse(request.session.get('sale_transaction_id'))
+        # Check weaccept orders number exist in existing all draft txns then first delete
+        txns = self.env['payment.transaction'].sudo().search([
+            ('sale_order_ids', 'in', [order.id]), ('state', '=', 'draft')])
 
-        # Check weaccept order number exist then first delete
-        if txn.weaccept_order_no:
+        for txn in txns.filtered(lambda l: l.weaccept_order_no):
             delete_url = 'https://accept.paymobsolutions.com/api/ecommerce/orders/%s?token=%s' % (
                 txn.weaccept_order_no, token)
             delete_response = requests.delete(delete_url, data=json.dumps({}), headers=headers)
             if delete_response.json().get('message') == 'deleted':
                 txn.weaccept_order_no = None
+
+        # Get latest transaction
+        txn = self.env['payment.transaction'].sudo().search([
+            ('sale_order_ids', 'in', [order.id]),
+            ('state', '=', 'draft')], limit=1, order="id DESC")
 
         # weaccept order request create
         order_url = 'https://accept.paymobsolutions.com/api/ecommerce/orders?token=%s' % token
@@ -140,7 +143,7 @@ class TransactionWeAccept(models.Model):
             _logger.info(error_msg)
             raise ValidationError(error_msg)
 
-        if response_code == 'APPROVED' or response_code == '0':
+        if response_code == '0':
             _logger.info('WeAccept: Payment revalidated Successfully.')
             tx.write({
                 'weaccept_order_no': data.get('order'),
@@ -174,7 +177,7 @@ class TransactionWeAccept(models.Model):
             _logger.info('WeAccept: Already validated transaction (ref %s)', self.reference)
             return True
 
-        _weaccept_success_tx_status = ['0','APPROVED']
+        _weaccept_success_tx_status = ['0']
         status = data.get('txn_response_code')
         if status in _weaccept_success_tx_status:
             self._set_transaction_done()
